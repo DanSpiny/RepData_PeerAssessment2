@@ -1,0 +1,70 @@
+---
+title: "Five most destructive natural events across the United States"
+author: "DanSpiny"
+date: "26 Sep 2015"
+output: html_document
+---
+## Synopsis
+
+In this report we aim to describe the changes in fine particle (PM2.5) outdoor air pollution in the United States between the years 1999 and 2012. Our overall hypothesis is that out door PM2.5 has decreased on average across the U.S. due to nationwide regulatory requirements arising from the Clean Air Act. To investigate this hypothesis, we obtained PM2.5 data from the U.S. Environmental Protection Agency which is collected from monitors sited across the U.S. We specifically obtained data for the years 1999 and 2012 (the most recent complete year available). From these data, we found that, on average across the U.S., levels of PM2.5 have decreased between 1999 and 2012. At one individual monitor, we found that levels have decreased and that the variability of PM2.5 has decreased. Most individual states also experienced decreases in PM2.5, although some states saw increases.
+
+## Data Processing
+
+```{r, message=FALSE}
+library(downloader)
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+```
+
+```{r, cache=TRUE}
+# data loading
+
+url = "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+if(!file.exists("RepData_PeerAssessment2")){
+        dir.create("RepData_PeerAssessment2")
+}
+
+download(url, destfile = "./RepData_PeerAssessment2/StormData.csv.bz2")
+
+storm_data <- read.csv("./RepData_PeerAssessment2/StormData.csv.bz2")
+```
+
+```{r}
+# data preprocessing
+
+dim(storm_data)
+storm_data <- select(storm_data, EVTYPE, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP, FATALITIES, INJURIES)
+storm_tf <- tbl_df(storm_data)
+glimpse(storm_tf)
+
+table(storm_data$PROPDMGEXP)
+table(storm_data$CROPDMGEXP)
+
+multiplier <- c('K' = 1e3, 'k' = 1e3, 'M' = 1e6, 'm' = 1e3, 'B' = 1e9)
+```
+## Results
+
+### Most harmful with respect to population health
+```{r, fig.width=8}
+top_fatal <- storm_tf %>% group_by(EVTYPE) %>% summarise(n_fatal = sum(FATALITIES)) %>% arrange(desc(n_fatal))
+
+top_inj <- storm_tf %>% group_by(EVTYPE) %>% summarise(n_inj = sum(INJURIES)) %>% arrange(desc(n_inj))
+
+health_imp <- left_join(top_fatal, top_inj, by = "EVTYPE")
+
+health_imp_p <- mutate(health_imp, fatal_p = n_fatal/sum(n_fatal), inj_p = n_inj/sum(n_inj))
+head(health_imp_p, n = 10)
+
+health_imp <- top_n(health_imp, 5, wt = n_fatal)
+
+health_imp <- melt(health_imp, id.vars = c("EVTYPE"), variable.name = "Type_of_impact", value.name = "n_of_victims")
+
+levels(health_imp$Type_of_impact) <- c("fatalities", "injuries")
+
+ggplot(health_imp, aes(EVTYPE, n_of_victims, fill = Type_of_impact)) + geom_bar(stat = "identity") + xlab("Type of event") + ylab("Number of victims")
+```
+
+### Events that have the greatest economic consequences
+```{r}
+```
